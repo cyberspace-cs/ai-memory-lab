@@ -9,7 +9,7 @@
 |---|---|---|
 | P0 | 调研 + fork（mem0/graphiti/cognee/LightRAG/letta） | ✅ 2026-09-20 fork 完成 |
 | P1 | 源码走读：mem0 两阶段 → graphiti 双时态 → cognee ECL | 🟨 [01-mem0-add 全链路](docs/02-源码走读笔记/01-mem0-add-全链路.md)（发现 V3 additive 演进） |
-| P2 | nano-memory 全链路实操（6 模块） | 🟢 **32 测试全绿**：v0 全链路 + v2 SQLite 持久化 + 运维本体 + 评测指标 |
+| P2 | nano-memory 全链路实操（6 模块） | 🟢 **39 测试全绿**：v0 全链路 + v2 持久化/本体/向量三路 RRF/DEFER 复核 API |
 | P3 | 独立设计 v0 + AuditScope 事件单评测集 | 🟨 设计成稿 + 语料 B 验收 + [metrics 模块](nano_memory/metrics.py)（四指标 100%） |
 | P4 | 对比博客 +（可选）开源 | 🟨 已开源 + [博客初稿](docs/blog-六维设计空间.md)（约 5000 字，待定稿发布） |
 

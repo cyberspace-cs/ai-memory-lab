@@ -11,6 +11,7 @@ from typing import Optional
 from .graph import EntityGraph
 from .schema import MemoryItem, SourceRef, canonical_text
 from .store import MemoryStore
+from .vectors import VectorIndex
 
 _TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
 
@@ -107,7 +108,23 @@ class Retriever:
         if not pool:
             return Answer(query=query)
 
-        scores = self._bm25_scores(query, pool)
+        # ── 三路召回 + RRF 融合【mem0 hybrid + graphiti rerank 的融合版】 ──
+        RRF_K = 60
+        fused: dict[str, float] = {}
+
+        # 路 1：BM25
+        bm25 = self._bm25_scores(query, pool)
+        for rank, (iid, _) in enumerate(
+                sorted(bm25.items(), key=lambda x: x[1], reverse=True)):
+            fused[iid] = fused.get(iid, 0) + 1.0 / (RRF_K + rank + 1)
+
+        # 路 2：TF-IDF 向量（sqlite-vec 版 v2 替换）
+        vec_index = VectorIndex().fit(
+            {i.id: f"{i.content} {' '.join(i.entities)}" for i in pool})
+        for rank, (iid, _) in enumerate(vec_index.search(query, k=len(pool))):
+            fused[iid] = fused.get(iid, 0) + 1.0 / (RRF_K + rank + 1)
+
+        scores = bm25  # 保留原始分数供调试
 
         # 图扩展 + 谓词词典加权
         q_canon = canonical_text(query)
@@ -127,7 +144,7 @@ class Retriever:
 
         ranked = sorted(
             pool,
-            key=lambda i: scores.get(i.id, 0.0) + boost.get(i.id, 0.0),
+            key=lambda i: fused.get(i.id, 0.0) + boost.get(i.id, 0.0),
             reverse=True,
         )[:k]
         ans = Answer(query=query, items=ranked)
