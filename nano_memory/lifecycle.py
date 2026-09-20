@@ -25,7 +25,13 @@ from .store import MemoryStore
 class MemEngine:
     def __init__(self, extractor: Optional[BaseExtractor] = None,
                  judge: Optional[LLMJudge] = None,
-                 graph_aliases: Optional[dict[str, str]] = None) -> None:
+                 graph_aliases: Optional[dict[str, str]] = None,
+                 functional_predicates: Optional[set[str]] = None) -> None:
+        """functional_predicates【抄 cognee resolve_temporal_contradictions】：
+        单值关系需显式声明（如 lives_in/works_at/root_cause），声明了才允许
+        SUPERSEDE；未声明的多值关系（如 likes）仅凭同键不做互顶。
+        限定条件（qualifier）不同时永远并存，不受此声明影响。"""
+        self.functional = functional_predicates  # None = 全部函数型（v0 默认，向后兼容）
         self.episodes = EpisodeStore()
         self.store = MemoryStore()
         self.graph = EntityGraph(aliases=graph_aliases)
@@ -80,6 +86,15 @@ class MemEngine:
                     judge="manual"))
                 continue
             conflicts = self.store.current_by_key(item.key)
+            # 未声明为函数型的 predicate：多值关系，同键不同 object 不做 SUPERSEDE
+            if (self.functional is not None
+                    and canonical_text(item.predicate) not in self.functional
+                    and not item.qualifier):
+                for res in self.resolver.resolve_multivalue(item, conflicts):
+                    self._apply(res, item)
+                if item.status in (Status.CURRENT, Status.PENDING):
+                    ingested.append(item)
+                continue
             for res in self.resolver.resolve(item, conflicts):
                 self._apply(res, item)
             if item.status in (Status.CURRENT, Status.PENDING):

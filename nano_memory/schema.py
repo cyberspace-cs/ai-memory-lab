@@ -48,6 +48,8 @@ class MemoryItem:
     entities: list[str] = field(default_factory=list)
     valid_from: Optional[str] = None          # ④ 双时态业务轴
     valid_to: Optional[str] = None
+    invalidated_at: Optional[str] = None      # 事务轴：系统何时学到它失效【抄 graphiti expired_at】
+    qualifier: str = ""                       # 限定条件（如"工作日"/"周末"），不同限定可并存
     transacted_at: str = field(default_factory=lambda: _now_iso())
     confidence: float = 1.0
     status: Status = Status.CURRENT
@@ -84,6 +86,7 @@ class FactCandidate:
     predicate: str
     object: str
     valid_from: Optional[str] = None
+    qualifier: str = ""
     confidence: float = 0.8
 
     def to_item(self, source: SourceRef) -> MemoryItem:
@@ -91,6 +94,7 @@ class FactCandidate:
             memory_type=self.memory_type, content=self.content,
             subject=self.subject, predicate=self.predicate, object=self.object,
             entities=_entities_of(self), valid_from=self.valid_from,
+            qualifier=self.qualifier,
             confidence=self.confidence, source=source,
         )
 

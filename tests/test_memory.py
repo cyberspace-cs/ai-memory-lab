@@ -172,3 +172,67 @@ class TestRuleExtractor(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBacklog(unittest.TestCase):
+    """graphiti 走读后补的三项：事务轴显式化 / qualifier 并存。"""
+
+    def test_invalidated_at_on_supersede(self):
+        eng = MemEngine(extractor=DictExtractor([]))
+        eng.add_facts([dict(memory_type="semantic", content="用户住在上海",
+                            subject="用户", predicate="lives_in", object="上海",
+                            valid_from="2026-01-10")], ts="2026-01-10")
+        eng.add_facts([dict(memory_type="semantic", content="用户搬到了北京",
+                            subject="用户", predicate="lives_in", object="北京",
+                            valid_from="2026-06-01")], ts="2026-06-02")
+        old = [i for i in eng.store.items_including_history()
+               if i.status == Status.SUPERSEDED][0]
+        self.assertIsNotNone(old.invalidated_at)        # 事务轴显式化
+        self.assertEqual(old.valid_to, "2026-06-01")    # 业务轴不变
+
+    def test_qualifier_coexist(self):
+        eng = MemEngine(extractor=DictExtractor([]))
+        eng.add_facts([dict(memory_type="procedural", content="用户工作日喝冰美式",
+                            subject="用户", predicate="likes_drink", object="冰美式",
+                            valid_from="2026-02-01", qualifier="工作日")], ts="2026-02-01")
+        eng.add_facts([dict(memory_type="procedural", content="用户周末喝拿铁",
+                            subject="用户", predicate="likes_drink", object="拿铁",
+                            valid_from="2026-06-01", qualifier="周末")], ts="2026-06-01")
+        cur = eng.store.current_by_key(("用户", "likes_drink"))
+        self.assertEqual(len(cur), 2)                    # 不同限定 → 并存
+        ops = [l["op"] for l in eng.export_audit()["resolutions"]]
+        self.assertIn("ADD", ops)
+        ev = [l["evidence"] for l in eng.export_audit()["resolutions"]
+              if l["op"] == "ADD" and "qualifier" in l["evidence"]]
+        self.assertTrue(ev)
+
+
+class TestFunctionalPredicates(unittest.TestCase):
+    """【抄 cognee】函数型关系显式声明：未声明者多值并存。"""
+
+    def test_nonfunctional_coexist(self):
+        eng = MemEngine(extractor=DictExtractor([]),
+                        functional_predicates={"lives_in", "uses_phone"})
+        eng.add_facts([dict(memory_type="procedural", content="用户喜欢喝冰美式",
+                            subject="用户", predicate="likes_drink", object="冰美式",
+                            valid_from="2026-02-01")], ts="2026-02-01")
+        eng.add_facts([dict(memory_type="procedural", content="用户也爱喝拿铁",
+                            subject="用户", predicate="likes_drink", object="拿铁",
+                            valid_from="2026-06-01")], ts="2026-06-01")
+        cur = eng.store.current_by_key(("用户", "likes_drink"))
+        self.assertEqual(len(cur), 2)                    # 多值并存，不互顶
+        ops = [l["op"] for l in eng.export_audit()["resolutions"]]
+        self.assertIn("ADD", ops)
+
+    def test_functional_still_supersede(self):
+        eng = MemEngine(extractor=DictExtractor([]),
+                        functional_predicates={"lives_in", "uses_phone"})
+        eng.add_facts([dict(memory_type="semantic", content="用户用 iPhone 15",
+                            subject="用户", predicate="uses_phone", object="iPhone 15",
+                            valid_from="2026-01-10")], ts="2026-01-10")
+        eng.add_facts([dict(memory_type="semantic", content="用户换了小米 15",
+                            subject="用户", predicate="uses_phone", object="小米 15",
+                            valid_from="2026-07-15")], ts="2026-07-15")
+        cur = eng.store.current_by_key(("用户", "uses_phone"))
+        self.assertEqual(len(cur), 1)
+        self.assertEqual(cur[0].object, "小米 15")

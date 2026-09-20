@@ -18,9 +18,11 @@ class MemoryStore:
         self._items[item.id] = item
 
     def supersede(self, old: MemoryItem, new: MemoryItem) -> None:
-        """不变量 2：旧条不删除，只闭区间 + 改状态。"""
+        """不变量 2：旧条不删除，只闭区间 + 改状态。
+        事务轴显式化【抄 graphiti expired_at】：invalidated_at 记系统何时学到失效。"""
         old.valid_to = new.valid_from or old.valid_to
         old.status = Status.SUPERSEDED
+        old.invalidated_at = new.transacted_at
         self._items[old.id] = old
         self._items[new.id] = new
 

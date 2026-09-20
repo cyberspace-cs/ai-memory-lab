@@ -45,6 +45,21 @@ class Resolver:
             out.append(self._add(new, evidence="no conflicting (subject,predicate)"))
         return out
 
+    def resolve_multivalue(self, new: MemoryItem, conflicts: list[MemoryItem]) -> list[Resolution]:
+        """多值关系（未声明函数型）：不同 object 正交并存，仅内容完全一致时 NOOP。"""
+        out = []
+        for old in conflicts:
+            if canonical_text(new.content) == canonical_text(old.content):
+                out.append(Resolution("NOOP", f"identical content of item {old.id}",
+                                      "rules", matched_item=old))
+                continue
+            out.append(self._add(new, evidence=(
+                f"multi-valued predicate {new.key[1]}: coexists with item {old.id}")))
+            break  # 一条并存证据即可，其余冲突项同理
+        if not conflicts:
+            out.append(self._add(new, evidence="no conflicts"))
+        return out
+
     # ── 单对裁决（调用方保证 same key：current_by_key 只回同键） ──
     def _resolve_one(self, new: MemoryItem, old: MemoryItem) -> Resolution:
         # 1) NOOP：完全重复
@@ -53,6 +68,12 @@ class Resolver:
                               matched_item=old)  # 重复=印证机会，交 lifecycle 累积
 
         # 2) 同键、object 变化：必须二选一，不能 KEEP_BOTH（不变量 3）
+        #    例外：限定条件不同（"工作日"vs"周末"）→ 正交并存
+        if (new.qualifier and old.qualifier
+                and canonical_text(new.qualifier) != canonical_text(old.qualifier)):
+            return self._add(new, evidence=(
+                f"different qualifiers coexist: '{new.qualifier}' vs '{old.qualifier}' "
+                f"(item {old.id})"))
         if canonical_text(new.object) != canonical_text(old.object):
             if new.valid_from and old.valid_from:
                 if new.valid_from >= old.valid_from:

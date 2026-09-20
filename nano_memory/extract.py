@@ -49,6 +49,7 @@ class DictExtractor(BaseExtractor):
                 # 注意：不回填 ts。ts 是事务时间，valid_from 是业务时间，
                 # 二者混用会掩盖"业务时间未知"→ 冲突裁决应走 DEFER
                 valid_from=f.get("valid_from"),
+                qualifier=f.get("qualifier", ""),
                 confidence=f.get("confidence", 0.9),
             )
             for f in self._facts
