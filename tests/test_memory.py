@@ -112,6 +112,11 @@ class TestResolver(unittest.TestCase):
         self._add("上海", "2026-01-10")
         ops = [l["op"] for l in self.eng.export_audit()["resolutions"]]
         self.assertEqual(ops, ["ADD", "NOOP"])
+        # 重复不入库但累积印证（抄 graphiti duplicate→episodes 追加）
+        cur = self.eng.store.current_by_key(("用户", "lives_in"))
+        self.assertEqual(len(cur), 1)
+        self.assertAlmostEqual(cur[0].confidence, 0.95)   # 0.9 + 0.05
+        self.assertEqual(len(cur[0].corroborated_by), 1)
 
     def test_defer_llm_without_judge(self):
         self._add("上海", "2026-01-10")

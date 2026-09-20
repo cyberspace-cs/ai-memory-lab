@@ -91,10 +91,17 @@ class MemEngine:
             self.store.put(item)
             self.graph.add_triple(item.subject, item.predicate, item.object)
         elif res.op == "SUPERSEDE":
-            self.store.supersede(res.supersede_target, item)
+            self.store.supersede(res.matched_item, item)
             self.graph.add_triple(item.subject, item.predicate, item.object)
         elif res.op == "NOOP":
-            item.status = Status.DELETED                # 重复候选不入库
+            # 重复候选不入库，但也不浪费：【抄 graphiti duplicate→episodes 追加】
+            # 把新 episode 挂到已有条目做多源印证（confidence 微涨，封顶 1.0）
+            old = res.matched_item
+            if old is not None:
+                old.corroborated_by.append(item.source.episode_id)
+                old.confidence = min(1.0, old.confidence + 0.05)
+                self.store.put(old)
+            item.status = Status.DELETED
         elif res.op == "KEEP_BOTH":
             self.store.put(item)
             self.graph.add_triple(item.subject, item.predicate, item.object)
@@ -103,7 +110,7 @@ class MemEngine:
             self.store.put(item)
         if res.op in ("ADD", "SUPERSEDE", "KEEP_BOTH", "NOOP", "DEFER_LLM"):
             self._logs.append(ResolutionLog(
-                item_id=(res.supersede_target.id if res.supersede_target else
+                item_id=(res.matched_item.id if res.matched_item else
                          (res.new_item.id if res.new_item else "-")),
                 new_item_id=item.id if res.op in ("ADD", "SUPERSEDE") else None,
                 op=res.op, evidence=res.evidence, judge=res.judge))

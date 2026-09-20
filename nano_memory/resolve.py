@@ -28,8 +28,8 @@ class Resolution:
     op: str
     evidence: str
     judge: str
-    supersede_target: Optional[MemoryItem] = None  # SUPERSEDE 时被顶掉的旧条
-    new_item: Optional[MemoryItem] = None          # ADD/SUPERSEDE 时生成的新条
+    matched_item: Optional[MemoryItem] = None  # 匹配到的已有条目（SUPERSEDE=被顶掉者，NOOP=被印证者）
+    new_item: Optional[MemoryItem] = None      # ADD/SUPERSEDE 时生成的新条目
 
 
 class Resolver:
@@ -49,7 +49,8 @@ class Resolver:
     def _resolve_one(self, new: MemoryItem, old: MemoryItem) -> Resolution:
         # 1) NOOP：完全重复
         if canonical_text(new.content) == canonical_text(old.content):
-            return Resolution("NOOP", f"identical content of item {old.id}", "rules")
+            return Resolution("NOOP", f"identical content of item {old.id}", "rules",
+                              matched_item=old)  # 重复=印证机会，交 lifecycle 累积
 
         # 2) 同键、object 变化：必须二选一，不能 KEEP_BOTH（不变量 3）
         if canonical_text(new.object) != canonical_text(old.object):
@@ -59,7 +60,7 @@ class Resolver:
                         "SUPERSEDE",
                         f"same key {new.key}, object '{old.object}' -> '{new.object}', "
                         f"t {old.valid_from} <= {new.valid_from}",
-                        "rules", supersede_target=old, new_item=new,
+                        "rules", matched_item=old, new_item=new,
                     )
                 # 新候选声称的是更早的状态（迟到信息）→ 交 LLM/人工
                 return self._defer(new, old,
@@ -80,7 +81,7 @@ class Resolver:
                 target = old if op == "SUPERSEDE" else None
                 item = new if op in ("ADD", "SUPERSEDE") else None
                 return Resolution(op, f"llm judge: {ev}", "llm",
-                                  supersede_target=target, new_item=item)
+                                  matched_item=target, new_item=item)
             reason += "; llm judge returned no verdict"
         new.status = Status.PENDING
         return Resolution("DEFER_LLM",

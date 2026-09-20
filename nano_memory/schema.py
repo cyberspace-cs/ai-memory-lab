@@ -51,6 +51,7 @@ class MemoryItem:
     transacted_at: str = field(default_factory=lambda: _now_iso())
     confidence: float = 1.0
     status: Status = Status.CURRENT
+    corroborated_by: list[str] = field(default_factory=list)  # 多源印证的 episode_id（NOOP 时累积）
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
 
     @property
