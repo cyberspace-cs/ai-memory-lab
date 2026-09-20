@@ -8,10 +8,10 @@
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | P0 | 调研 + fork（mem0/graphiti/cognee/LightRAG/letta） | ✅ 2026-09-20 fork 完成 |
-| P1 | 源码走读：mem0 两阶段 → graphiti 双时态 → cognee ECL | ⬜ |
-| P2 | nano-memory 全链路实操（6 模块 ~1000 行） | 🟢 v0 可跑：10 测试全绿（NOOP/SUPERSEDE/DEFER/复活复核/溯源/历史查询） |
-| P3 | 独立设计 v0 + AuditScope 事件单评测集 | ⬜ |
-| P4 | 对比博客 +（可选）开源 | ⬜ |
+| P1 | 源码走读：mem0 两阶段 → graphiti 双时态 → cognee ECL | 🟨 [01-mem0-add 全链路](docs/02-源码走读笔记/01-mem0-add-全链路.md)（发现 V3 additive 演进） |
+| P2 | nano-memory 全链路实操（6 模块） | 🟢 v0：**20 测试全绿**（含 LLM judge mock 路径 + 事件单语料） |
+| P3 | 独立设计 v0 + AuditScope 事件单评测集 | 🟨 设计成稿 + [语料 B 已验收](tests/test_incident_corpus.py)（RFT 更正对导出） |
+| P4 | 对比博客 +（可选）开源 | 🟨 已开源 [cyberspace-cs/ai-memory-lab](https://github.com/cyberspace-cs/ai-memory-lab)，博客待写 |
 
 ## 目录
 
